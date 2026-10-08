@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tableau de bord qualité</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; margin: 0; background: #f3f6fa; color: #1f2937; }
+  header { background: #1f3a5f; color: #fff; padding: 16px 24px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .kpi .v { font-size: 28px; font-weight: bold; color: #1f3a5f; }
+  .kpi .l { font-size: 13px; color: #6b7280; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 12px; margin-top: 12px; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  #msg { margin-left: 10px; font-size: 13px; }
+</style>
+</head>
+<body>
+<header><h1 style="margin:0;font-size:20px">Tableau de bord qualité – tests ICT</h1></header>
+<main>
+  <div class="kpis" id="kpis"></div>
+  <div class="grid">
+    <div class="card"><h2>Diagramme de Pareto des défauts</h2><canvas id="pareto"></canvas></div>
+    <div class="card"><h2>Évolution du FPY par jour (%)</h2><canvas id="trend"></canvas></div>
+    <div class="card"><h2>FPY par ligne de production (%)</h2><canvas id="lines"></canvas></div>
+    <div class="card">
+      <h2>Importer vos données (CSV)</h2>
+      <p style="font-size:13px">Colonnes : board_id, test_date, line, attempt, result (PASS/FAIL), defect_type</p>
+      <input type="file" id="file" accept=".csv"> <button onclick="upload()">Importer</button><span id="msg"></span>
+    </div>
+  </div>
+</main>
+<script>
+let charts = {};
+const get = async u => (await fetch(u)).json();
+const fmt = v => v === null ? "–" : v + " %";
+
+function draw(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
+
+async function load() {
+  const k = await get("/api/kpis");
+  document.getElementById("kpis").innerHTML = [
+    ["FPY (First Pass Yield)", fmt(k.fpy)], ["Taux de défauts", fmt(k.defect_rate)],
+    ["Cartes testées", k.boards], ["Tests réalisés", k.tests]
+  ].map(([l, v]) => `<div class="card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+
+  const p = await get("/api/pareto");
+  draw("pareto", { data: { labels: p.map(x => x.defect_type), datasets: [
+    { type: "bar", label: "Nombre de défauts", data: p.map(x => x.count), backgroundColor: "#1f3a5f", yAxisID: "y" },
+    { type: "line", label: "Cumul %", data: p.map(x => x.cumulative_pct), borderColor: "#e11d48", yAxisID: "y1" } ] },
+    options: { scales: { y: { beginAtZero: true }, y1: { position: "right", min: 0, max: 100, grid: { drawOnChartArea: false } } } } });
+
+  const t = await get("/api/trend");
+  draw("trend", { type: "line", data: { labels: t.map(x => x.day), datasets: [{ label: "FPY %", data: t.map(x => x.fpy), borderColor: "#1f3a5f" }] } });
+
+  const l = await get("/api/lines");
+  draw("lines", { type: "bar", data: { labels: l.map(x => x.line), datasets: [{ label: "FPY %", data: l.map(x => x.fpy), backgroundColor: "#3b82f6" }] },
+    options: { scales: { y: { min: 0, max: 100 } } } });
+}
+
+async function upload() {
+  const f = document.getElementById("file").files[0];
+  const msg = document.getElementById("msg");
+  if (!f) { msg.textContent = "Choisissez un fichier."; return; }
+  const body = new FormData(); body.append("file", f);
+  const r = await fetch("/api/upload", { method: "POST", body });
+  const j = await r.json();
+  msg.textContent = r.ok ? `✅ ${j.rows} lignes importées` : `❌ ${j.detail}`;
+  if (r.ok) load();
+}
+load();
+</script>
+</body>
+</html>
