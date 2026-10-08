@@ -16,7 +16,7 @@ Python · FastAPI · pandas · SQLite · Chart.js · pytest
 ## Lancer le projet
 
 ```bash
-git clone https://github.com/<ton-pseudo>/quality-dashboard.git
+git clone https://github.com/asmaborgi/quality-dashboard.git
 cd quality-dashboard
 python -m venv .venv
 source .venv/bin/activate        # Windows : .venv\Scripts\activate
