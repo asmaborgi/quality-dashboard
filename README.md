@@ -1,5 +1,7 @@
 # Tableau de bord qualité – tests ICT
 
+![Tableau de bord qualité](dashboard.png)
+
 Application web qui calcule et affiche des indicateurs qualité à partir de journaux de tests de cartes électroniques :
 
 - **FPY** (First Pass Yield) : part des cartes OK dès le premier passage
